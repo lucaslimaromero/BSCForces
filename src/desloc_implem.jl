@@ -207,6 +207,7 @@ function makeplotbessel(nx, ny, rx, ry, ψ₀)
 
             @threads for j in 1:ny
                 yi = y[j]
+                # println("Thread ", Threads.threadid(), " está processando linha j=", j)
                 for i in 1:nx
                     xi = x[i]
                     ρ = sqrt(xi^2 + yi^2) # TIREI O BIG (DESEMPENHO)
@@ -290,6 +291,6 @@ function makeplotpartial(nx, ny, rx, ry, ψ₀)
     savefig(plot(heatmaps..., layout=(3, 3), size=(1200, 900)), "partial_wave_exp.png")
 end 
 
-#@time makeplotbessel(200, 200, 0.2, 0.2, 1)
-@time makeplotpartial(10, 10, 0.2, 0.2, 1)
+@time makeplotbessel(200, 200, 0.2, 0.2, 1)
+# @time makeplotpartial(10, 10, 0.2, 0.2, 1)
 

@@ -174,8 +174,8 @@ function makepltpartial(nx, ny, ry, rx, psiamp)
 savefig(plot(htmaps..., layout = (3, 3),  xtickfontsize = 9, yfontsize = 9, size =(1200,900)), "plotpart_test.png")
 end
 
-#makepltpartial(200, 200, 0.2, 0.2, 1)
-makeplotbes(200, 200, 0.2, 0.2, 1)
+makepltpartial(200, 200, 0.2, 0.2, 1)
+# makeplotbes(200, 200, 0.2, 0.2, 1)
 
 
 
