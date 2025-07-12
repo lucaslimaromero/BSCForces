@@ -1,6 +1,6 @@
 using SpecialFunctions, LegendrePolynomials, Plots, Base.Threads, LaTeXStrings, Plots.PlotMeasures
 
-# Sua função bsccalc original (sem alterações aqui)
+# Sua função bsccalc original 
 function bsccalc(n::Int, m::Int, α::Float64) 
     if n < abs(m) 
         return ComplexF64(0.0)
@@ -16,7 +16,7 @@ function bsccalc(n::Int, m::Int, α::Float64)
 end
 
 # Função otimizada para calcular a amplitude da onda parcial
-function optimized_partialwave_calculator(
+function partialwave_calculator(
     psiamp_val::Number, 
     order_val::Int, 
     r_coord::Float64, 
@@ -51,7 +51,6 @@ function optimized_partialwave_calculator(
              continue
         end
 
-
         spher_val = SpecialFunctions.sphericalbesselj(n_idx, kr_val) # kr_val depende de r_coord (pixel)
         
         psi_total += term_bsc * spher_val * term_plm * cis(order_val * phi_coord)
@@ -60,9 +59,9 @@ function optimized_partialwave_calculator(
 end
 
 
-function makeplotpartial_optimized(nx::Int, ny::Int, rx_init::Float64, ry_init::Float64, ψ₀_amp::Number)
+function makeplotpartial(nx::Int, ny::Int, rx_init::Float64, ry_init::Float64, ψ₀_amp::Number)
     # z = 0 é implícito e usado para θ = π/2
-
+    println("Threads disponíveis: ", Threads.nthreads())
     k_val = 1000.0 * 2.0 * pi / 1.54
     n_max = 1000
 
@@ -122,7 +121,7 @@ function makeplotpartial_optimized(nx::Int, ny::Int, rx_init::Float64, ry_init::
                     phi_coord = atan(yi_coord, xi_coord) # atan(y,x) é mais robusto
                     # Se precisar de phi em [0, 2π): if phi_coord < 0 phi_coord += 2*pi; end
 
-                    amplitude_complexa = optimized_partialwave_calculator(
+                    amplitude_complexa = partialwave_calculator(
                         ψ₀_amp, order_current, rho_coord, k_val, phi_coord, 
                         n_max, precomputed_bscs_arr, precomputed_plm_at_pi_2_arr
                     )
@@ -134,9 +133,11 @@ function makeplotpartial_optimized(nx::Int, ny::Int, rx_init::Float64, ry_init::
             # Adiciona o heatmap ao vetor (usando x_coords_vec, y_coords_vec para os eixos)
             # Multiplicar por 1000 para mm se as coordenadas rx, ry estão em metros
             heatmap_title = latexstring("(", plot_labels[current_plot_idx], ") \\alpha=", round(rad2deg(alpha_rad_current),digits=1),"^\\circ, \\nu=", order_current)
+            heatmap_title_clean = latexstring("(", plot_labels[current_plot_idx], ")")
+
             heatmaps_collection[current_plot_idx] = heatmap(1000 * x_coords_vec, 1000 * y_coords_vec, bessel_beam_intensity_map, 
                                                             xlabel=latexstring("x (mm)"), ylabel=latexstring("y (mm)"), 
-                                                            title=heatmap_title, aspect_ratio=:equal,
+                                                            title=heatmap_title_clean, aspect_ratio=:equal,
                                                             left_margin=5mm, bottom_margin=5mm) # Ajuste de margens
         end # fim loop order_current
         
@@ -148,16 +149,17 @@ function makeplotpartial_optimized(nx::Int, ny::Int, rx_init::Float64, ry_init::
     
     # Plotar todos os heatmaps juntos
     final_plot = plot(heatmaps_collection..., layout=(length(axicon_angles_rad), length(orders_list)), size=(1200, 900), titlefontsize=10)
-    savefig(final_plot, "partial_wave_exp1_optimized.png")
-    println("Simulação otimizada concluída. Imagem salva em partial_wave_exp1_optimized.png")
+    savefig(final_plot, "partial_wave_exp1.png")
+    println("Simulação otimizada concluída. Imagem salva em partial_wave_exp1.png")
 end
+
 
 # Para executar:
 # Certifique-se de que o Julia foi iniciado com threads, ex: julia -t auto ou julia -t 4
-@time makeplotpartial_optimized(200, 200, 0.2, 0.2, 1.0)
+@time makeplotpartial(200, 200, 0.2, 0.2, 1.0)
 # Para testes mais rápidos, reduza nx, ny ou n_max:
-# @time makeplotpartial_optimized(10, 10, 0.2, 0.2, 1.0) # Resolução bem baixa para teste rápido
+# @time makeplotpartial(10, 10, 0.2, 0.2, 1.0) # Resolução bem baixa para teste rápido
 # Para a sua resolução original e teste de tempo:
-# @time makeplotpartial_optimized(30, 30, 0.2, 0.2, 1.0) # nx=30, ny=30
+# @time makeplotpartial(30, 30, 0.2, 0.2, 1.0) # nx=30, ny=30
 # Se quiser maior resolução para a imagem final (vai demorar mais):
-# @time makeplotpartial_optimized(100, 100, 0.2, 0.2, 1.0) # nx=100, ny=100
+# @time makeplotpartial(100, 100, 0.2, 0.2, 1.0) # nx=100, ny=100
