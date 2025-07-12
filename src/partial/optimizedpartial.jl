@@ -160,7 +160,7 @@ function makeplotpartial(nx, ny, rx, ry, ψ₀)
         y = y / mag
         mag = 4
     end
-    savefig(plot(heatmaps..., layout=(3, 3), size=(1200, 900)), "partial_wave_exp1.png")
+    savefig(plot(heatmaps..., layout=(3, 3), size=(1200, 900)), "partial_wave.png")
 end
 
 # Mantenha suas funções bsccalc e partialwavexp como estão. Elas estão perfeitas.
@@ -231,7 +231,7 @@ function makeplotpartial_displaced(nx, ny, rx, ry, ψ₀, x₀, y₀, z₀)
         push!(heatmaps, heatmap(1000 * x_grid, 1000 * y_grid, bessel_beam, xlabel=latexstring("x_d (mm)"),ylabel=latexstring("y_d (mm)"), title=latexstring('(' * alf[alfcount] * ')'), margin=0Plots.mm))
     end
 
-    savefig(plot(heatmaps..., layout=(3, 1), size=(500, 1300)), "feixe_deslocado_agora_sim.png")
+    savefig(plot(heatmaps..., layout=(3, 1), size=(500, 1300)), "partial_wave_displaced.png")
     println("Simulação finalizada.")
 end
 
@@ -244,8 +244,8 @@ y_desloc = 0.1
 z_desloc = 0.01
 
 # Pode rodar com uma resolução boa, porque este método é RÁPIDO.
-@time makeplotpartial_displaced(200, 200, 0.2, 0.2, 1.0, x_desloc, y_desloc, z_desloc)
-@time makeplotpartial_displaced(200, 200, 0.2, 0.2, 1.0, x_desloc, y_desloc, z_desloc*4)
+#@time makeplotpartial_displaced(200, 200, 0.2, 0.2, 1.0, x_desloc, y_desloc, z_desloc)
+#@time makeplotpartial_displaced(200, 200, 0.2, 0.2, 1.0, x_desloc, y_desloc, z_desloc*4)
 
-#@time makeplotpartial(200, 200, 0.2, 0.2, 1)
+@time makeplotpartial(200, 200, 0.2, 0.2, 1)
 
