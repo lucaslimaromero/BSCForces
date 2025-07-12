@@ -179,6 +179,9 @@ function makeplotpartial_displaced(nx, ny, rx, ry, ψ₀, x₀, y₀, z₀)
     α = deg2rad(1.0) # Fixo em 1°, como na figura de referência
     ν_list = [0, 1, 5]
 
+    k = 1000 * 2 * pi / 1.54
+    β = k * cos(α)
+
     alf = ['a', 'd', 'g']
     alfcount = 0
     heatmaps = Vector{Any}()
@@ -210,7 +213,7 @@ function makeplotpartial_displaced(nx, ny, rx, ry, ψ₀, x₀, y₀, z₀)
                 # relativas ao centro do feixe (x₀, y₀)
                 x_rel = xi - x₀
                 y_rel = yi - y₀
-                z_rel = z_grid - z₀ # A única linha nova!
+                z_rel = z_grid #- z₀ # A única linha nova!
                 
                 # Agora, convertemos essas coordenadas RELATIVAS para esféricas (r, θ, ϕ)
                 r = sqrt(x_rel^2 + y_rel^2 + z_rel^2)
@@ -219,8 +222,9 @@ function makeplotpartial_displaced(nx, ny, rx, ry, ψ₀, x₀, y₀, z₀)
                 ϕ = (ρ == 0.0) ? 0.0 : atan(y_rel, x_rel)
                 θ = (r == 0.0) ? 0.0 : acos(z_rel/r) # Para z=0, θ é sempre pi/2
                 
+                phase_z = cis(-β * z₀)
                 # E chamamos a SUA função 'partialwavexp' com essas coordenadas relativas.
-                bessel_beam[i, j] = abs2(partialwavexp(ψ₀, r, θ, ϕ, n_max, νi, bsc_precalculado, plm_precalculado))
+                bessel_beam[i, j] = abs2(partialwavexp(ψ₀, r, θ, ϕ, n_max, νi, bsc_precalculado, plm_precalculado) * phase_z)
             end
         end
         
