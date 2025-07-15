@@ -6,8 +6,10 @@ using LaTeXStrings
 using Plots.PlotMeasures
 
 # ==============================================================================
-# PARTE 1: CÁLCULO DOS COEFICIENTES DE ESPALHAMENTO (VERSÃO FINAL E CORRIGIDA)
+# PARTE 1: CÁLCULO DOS COEFICIENTES DE ESPALHAMENTO 
 # Esta versão é baseada na formulação clássica de Faran/Anderson e é mais estável.
+# R_n são coeficientes que descrevem como a esfera responde à onda incidente
+# RESPOSTA DA ESFERA
 # ==============================================================================
 function calcular_coeficientes_espalhamento(n_max::Int, a::Float64, f::Float64, ρ₀::Float64, c₀::Float64, ρ_s::Float64, cL_s::Float64, cT_s::Float64)
     ω = 2π * f
@@ -62,7 +64,7 @@ function calcular_coeficientes_espalhamento(n_max::Int, a::Float64, f::Float64, 
 end
 
 # ==============================================================================
-# PARTE 1: CÁLCULO DOS COEFICIENTES DE ESPALHAMENTO (APROXIMAÇÃO DE RAYLEIGH)
+# TESE EXTRA: CÁLCULO DOS COEFICIENTES DE ESPALHAMENTO (APROXIMAÇÃO DE RAYLEIGH)
 # Para a << λ, esta é a forma mais simples e correta de calcular os coeficientes.
 # ==============================================================================
 function calcular_coeffs_rayleigh(n_max::Int, a::Float64, k::Float64, ρ₀::Float64, c₀::Float64, ρ_s::Float64, cL_s::Float64)
@@ -106,6 +108,8 @@ end
 
 # ==============================================================================
 # PARTE 2: CÁLCULO DOS BSCs PARA FEIXE DESLOCADO
+# Os BSCs dizem "quanto" de cada modo esférico existe no feixe, considerando o deslocamento da esfera. Ele remonta o feixe de bessel a partir de ondas esféricas, uma vez que o espalhamento terá simetria esférica, associada à partícula esférica
+# FORMA DA ONDA INCIDENTE (FEIXE DE BESSEL DESLOCADO)
 # ==============================================================================
 
 """
@@ -137,10 +141,13 @@ Calcula as componentes cartesianas da força Fx e Fy, seguindo rigorosamente
 a fórmula do projeto de IC (Eq. 6a e 6b).
 """
 function calcular_forcas_transversais(ρ₀_fluid, ϕ₀_amp, n_max, bscs_2D, α_coeffs, β_coeffs)
+
+    # Inicialização das variáveis que guardarão as somas das componentes de F em x,y
     soma_Fx = ComplexF64(0.0)
     soma_Fy = ComplexF64(0.0)
 
     for n in 0:n_max-1
+        # Pegamos os coeficientes para n e n+1
         αn, βn = α_coeffs[n+1], β_coeffs[n+1]
         αn_p1, βn_p1 = α_coeffs[n+2], β_coeffs[n+2]
 
@@ -185,9 +192,49 @@ function calcular_forcas_transversais(ρ₀_fluid, ϕ₀_amp, n_max, bscs_2D, α
     return pre_fator * real(soma_Fx), pre_fator * real(soma_Fy)
 end
 
+# ==============================================================================
+# NOVA FUNÇÃO: CÁLCULO DA FORÇA AXIAL (Fz)
+# ==============================================================================
+
+"""
+Calcula a componente axial da força (Fz), seguindo a Eq. (6c) do projeto de IC.
+"""
+function calcular_forca_axial(ρ₀_fluid, ϕ₀_amp, n_max, bscs_2D, α_coeffs, β_coeffs)
+    soma_Fz = 0.0 # Usamos Float64 pois a soma final será real
+
+    for n in 0:n_max-1
+        αn, βn = α_coeffs[n+1], β_coeffs[n+1]
+        αn_p1, βn_p1 = α_coeffs[n+2], β_coeffs[n+2]
+
+        D1 = αn + αn_p1 + 2 * (αn * αn_p1 + βn * βn_p1)
+        D2 = βn_p1 - βn + 2 * (βn_p1 * αn - αn_p1 * βn)
+
+        # Para Fz, a fórmula acopla A_n^m com A_{n+1}^m (mesmo 'm')
+        for m in -n:n
+            Q_nm = 2 * exp(lgamma(n + m + 1) - lgamma(n - m + 1) - log(2n + 1) - log(2n + 3))
+            
+            # Acessa os BSCs necessários
+            m_idx = m + n_max + 1 # Desloca o índice de 'm' para ser sempre positivo
+            Anm = bscs_2D[n + 1, m_idx]
+            Anp1_m = bscs_2D[n + 2, m_idx]
+
+            # Termos dentro do somatório da Eq. (6c)
+            Re_termo = real(Anm * conj(Anp1_m))
+            Im_termo = imag(Anm * conj(Anp1_m))
+            
+            soma_Fz += 2 * (n + m + 1) * Q_nm * (Re_termo * D2 - Im_termo * D1)
+        end
+    end
+
+    # Pré-fator da Eq. (6c), com o sinal negativo correto.
+    pre_fator = -(π * ρ₀_fluid * ϕ₀_amp^2) / 2.0
+    return pre_fator * soma_Fz
+end
+
+
 
 # ==============================================================================
-# PARTE 4: SCRIPT PRINCIPAL PARA GERAR O GRÁFICO
+# PARTE 5: SCRIPT PRINCIPAL PARA GERAR O GRÁFICO
 # ==============================================================================
 
 function gerar_grafico_figura2()
@@ -281,6 +328,97 @@ function gerar_grafico_figura2()
 end
 
 # ==============================================================================
+# SCRIPT PRINCIPAL PARA GERAR O GRÁFICO DA FIGURA 4
+# ==============================================================================
+
+function gerar_grafico_figura4()
+    println("Iniciando simulação para Figura 4 de Baresch et al. (2013)...")
+
+    # --- 1. Definir Parâmetros Físicos ---
+    # Os parâmetros do meio e da partícula são os mesmos de antes.
+    f = 1e6; P₀ = 0.1e6; c₀ = 1500.0; ρ₀ = 1000.0;
+    cL_s = 2350.0; cT_s = 1120.0; ρ_s = 1080.0;
+    
+    # Parâmetros específicos para esta figura
+    ν = 1 # Carga topológica (helicity m=1) [cite: 599]
+    α_axicon_lista_graus = [50.0, 60.0, 70.0] # Ângulos do cone (β) [cite: 563-564]
+
+    # Parâmetros derivados
+    λ = c₀ / f
+    k = 2π / λ
+    ω = 2π * f
+    ϕ₀_amp = P₀ / (ω * ρ₀)
+    
+    # Parâmetros de simulação
+    n_max = 50 
+    a_div_λ_range = 0.001:0.005:0.5 # Começa em um valor minúsculo, mas não zero
+    
+    # --- 2. Preparar o Plot ---
+    plot_final = plot(
+        xlabel="a/λ",
+        ylabel="F_z [N]",
+        title="Força Axial em Esfera de Poliestireno (ν=1)",
+        legend=:topleft,
+        framestyle=:box
+    )
+    
+    # --- 3. Loop de Simulação Principal ---
+    # Loop externo: um para cada curva do gráfico (cada ângulo α)
+    for α_graus in α_axicon_lista_graus
+        println("Calculando curva para α = $(α_graus)°...")
+        
+        α_rad = deg2rad(α_graus)
+        forcas_axiais = zeros(Float64, length(a_div_λ_range))
+        
+        # Loop interno: calcula a força para cada raio 'a'
+        for (i, a_div_λ) in enumerate(a_div_λ_range)
+            # O raio 'a' muda a cada iteração!
+            a = a_div_λ * λ
+            
+            # --- Pré-cálculos que dependem de 'a' ---
+            # Os coeficientes de espalhamento mudam com 'a', então precisam estar dentro do loop.
+            α_coeffs, β_coeffs = calcular_coeficientes_espalhamento(n_max, a, f, ρ₀, c₀, ρ_s, cL_s, cT_s)
+            
+            # --- A GRANDE SIMPLIFICAÇÃO ---
+            # Para a Figura 4, a esfera está NO EIXO (deslocamento ρ₀ = 0).
+            # Quando ρ₀=0, o único BSC não-zero é quando m=ν. Isso simplifica TUDO.
+            # Não precisamos da matriz 2D, apenas um vetor para A_n^ν.
+            bscs_on_axis = zeros(ComplexF64, n_max + 2)
+            for n in 0:n_max+1
+                # Chamamos a função 'bsccalc' simples, pois para ρ₀=0, 'bsccalc_deslocado' se reduz a ela.
+                # Só calculamos para m=ν.
+                bscs_on_axis[n + 1] = bsccalc_deslocado(n, ν, α_rad, ν, k, 0.0, 0.0)
+            end
+            
+            # Convertemos para o formato de matriz 2D que a função de força espera,
+            # preenchendo com zeros onde m != ν.
+            bscs_2D_simplificado = zeros(ComplexF64, n_max + 2, 2 * n_max + 1)
+            for n in 0:n_max+1
+                m_idx = ν + n_max + 1
+                bscs_2D_simplificado[n + 1, m_idx] = bscs_on_axis[n+1]
+            end
+
+            # Calcula a força axial
+            Fz = calcular_forca_axial(ρ₀, ϕ₀_amp, n_max, bscs_2D_simplificado, α_coeffs, β_coeffs)
+            forcas_axiais[i] = Fz
+            
+            print("\rProgresso para α=$(α_graus)°: $(round(i/length(a_div_λ_range)*100, digits=1))%")
+        end
+        
+        # Adiciona a curva calculada ao plot
+        plot!(plot_final, a_div_λ_range, forcas_axiais, label="β = $(α_graus)°", lw=2)
+    end
+
+    # --- 4. Salvar o Gráfico ---
+    println("\nCálculo concluído. Gerando o gráfico...")
+    savefig(plot_final, "figura4_baresch_reproduzida.png")
+    println("Gráfico salvo como 'figura4_baresch_reproduzida.png'")
+end
+
+# Executar a simulação para a Figura 4
+gerar_grafico_figura4()
+
+# ==============================================================================
 # FUNÇÃO DE TESTE: Coeficientes para uma Esfera Rígida e Fixa
 # Esta fórmula é muito mais simples e serve para verificarmos o resto do código.
 # ==============================================================================
@@ -314,4 +452,4 @@ function calcular_coeffs_esfera_rigida_TESTE(n_max::Int, a::Float64, k::Float64)
 end
 
 # Executar a simulação
-gerar_grafico_figura2()
+#gerar_grafico_figura2()

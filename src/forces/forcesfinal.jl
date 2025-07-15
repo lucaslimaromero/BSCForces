@@ -218,6 +218,112 @@ function gerar_grafico_figura2()
     savefig("figura2_baresch_refatorada.png")
     println("Gráfico salvo como 'figura2_baresch_refatorada.png'")
 end
+"""
+Calcula a componente axial da força (Fz), seguindo a Eq. (6c) do projeto de IC.
+"""
+function calcular_forca_axial(ρ₀_fluid, ϕ₀_amp, n_max, bscs_2D, α_coeffs, β_coeffs)
+    soma_Fz = 0.0 # Usamos Float64 pois a soma final será real
+
+    for n in 0:n_max-1
+        αn, βn = α_coeffs[n+1], β_coeffs[n+1]
+        αn_p1, βn_p1 = α_coeffs[n+2], β_coeffs[n+2]
+
+        D1 = αn + αn_p1 + 2 * (αn * αn_p1 + βn * βn_p1)
+        D2 = βn_p1 - βn + 2 * (βn_p1 * αn - αn_p1 * βn)
+
+        # Para Fz, a fórmula acopla A_n^m com A_{n+1}^m (mesmo 'm')
+        for m in -n:n
+            Q_nm = 2 * exp(lgamma(n + m + 1) - lgamma(n - m + 1) - log(2n + 1) - log(2n + 3))
+            
+            # Acessa os BSCs necessários
+            m_idx = m + n_max + 1 # Desloca o índice de 'm' para ser sempre positivo
+            Anm = bscs_2D[n + 1, m_idx]
+            Anp1_m = bscs_2D[n + 2, m_idx]
+
+            # Termos dentro do somatório da Eq. (6c)
+            Re_termo = real(Anm * conj(Anp1_m))
+            Im_termo = imag(Anm * conj(Anp1_m))
+            
+            soma_Fz += 2 * (n + m + 1) * Q_nm * (Re_termo * D2 - Im_termo * D1)
+        end
+    end
+
+    # Pré-fator da Eq. (6c), com o sinal negativo correto.
+    pre_fator = -(π * ρ₀_fluid * ϕ₀_amp^2) / 2.0
+    return pre_fator * soma_Fz
+end
+# ==============================================================================
+# SCRIPT PRINCIPAL PARA GERAR O GRÁFICO DA FIGURA 4
+# ==============================================================================
+
+function gerar_grafico_figura4()
+    println("Iniciando simulação para Figura 4 de Baresch et al. (2013)...")
+
+    # --- 1. Definir Parâmetros Físicos ---
+    # Os parâmetros do meio e da partícula são os mesmos de antes.
+    f = 1e6; P₀ = 0.1e6; c₀ = 1500.0; ρ₀ = 1000.0;
+    cL_s = 2350.0; cT_s = 1120.0; ρ_s = 1080.0;
+    
+    # Parâmetros específicos para esta figura
+    ν = 1 # Carga topológica (helicity m=1)
+    α_axicon_lista_graus = [50.0, 60.0, 70.0]
+
+    λ = c₀ / f
+    n_max = 50 
+    a_div_λ_range = 0.001:0.005:0.5
+
+    plot_final = plot(
+        xlabel="a/λ",
+        ylabel="F_z [N]",
+        title="Força Axial em Esfera de Poliestireno (ν=1)",
+        legend=:topleft,
+        framestyle=:box
+    )
+
+    for α_graus in α_axicon_lista_graus
+        println("Calculando curva para α = $(α_graus)°...")
+        forcas_axiais = zeros(Float64, length(a_div_λ_range))
+
+        for (i, a_div_λ) in enumerate(a_div_λ_range)
+            # Usa a struct ParametrosSimulacao
+            p = ParametrosSimulacao(f, P₀, c₀, ρ₀, cL_s, cT_s, ρ_s, ν, α_graus, a_div_λ)
+
+            α_coeffs, β_coeffs = calcular_coeficientes_espalhamento(n_max, p)
+
+            # bscs_on_axis = zeros(ComplexF64, n_max + 2)
+            # for n in 0:n_max+1
+            #     bscs_on_axis[n + 1] = bsccalc_deslocado(n, ν, p, 0.0, 0.0)
+            # end
+            bscs_2D = zeros(ComplexF64, n_max + 2, 2 * n_max + 1)
+            for n in 0:n_max+1
+                for m in -n:n
+                    bscs_2D[n + 1, m + n_max + 1] = bsccalc_deslocado(n, m, p, 0.0, 0.0)
+                end
+            end
+
+
+            bscs_2D_simplificado = zeros(ComplexF64, n_max + 2, 2 * n_max + 1)
+            m_idx = ν + n_max + 1
+            for n in 0:n_max+1
+                bscs_2D_simplificado[n + 1, m_idx] = bscs_on_axis[n+1]
+            end
+
+            Fz = calcular_forca_axial(p.ρ₀, p.ϕ₀_amp, n_max, bscs_2D_simplificado, α_coeffs, β_coeffs)
+            forcas_axiais[i] = Fz
+
+            print("\rProgresso para α=$(α_graus)°: $(round(i/length(a_div_λ_range)*100, digits=1))%")
+        end
+
+        plot!(plot_final, a_div_λ_range, forcas_axiais, label="β = $(α_graus)°", lw=2)
+    end
+
+    println("\nCálculo concluído. Gerando o gráfico...")
+    savefig(plot_final, "figura4_baresch_reproduzida.png")
+    println("Gráfico salvo como 'figura4_baresch_reproduzida.png'")
+end
+
+# Executar a simulação para a Figura 4
+gerar_grafico_figura4()
 
 # Executar a simulação
 gerar_grafico_figura2()
