@@ -8,8 +8,8 @@ function gerar_grafico_figura5()
 
     # --- 1. Definir os dois conjuntos de parâmetros para as curvas da Figura 5 ---
     # Parâmetros extraídos diretamente da legenda da Fig. 5 do artigo.
-    params_caso1 = (β = 50.0, a_div_λ = 0.30, estilo = :solid, cor = :black, label = "a/λ=0.30 (Não ressonante)")
-    params_caso2 = (β = 50.0, a_div_λ = 0.33, estilo = :dash, cor = :black, label = "a/λ=0.33 (Ressonante)")
+    params_caso1 = (β = 50.0, a_div_λ = 0.30, estilo = :solid, cor = :black, label = "a/λ=0.300 (Não ressonante)")
+    params_caso2 = (β = 50.0, a_div_λ = 0.358, estilo = :dash, cor = :black, label = "a/λ=0.358 (Ressonante)")
     
     casos = [params_caso1, params_caso2]
     
@@ -33,6 +33,7 @@ function gerar_grafico_figura5()
         n_max = 40 # Usamos um n_max maior para garantir a convergência
         
         desloc_div_λ = 0.0:0.02:1.5
+        #desloc_div_λ = 0.0:0.004:1.5
         deslocamentos_ρ = desloc_div_λ * p.λ
         forcas_radiais = zeros(Float64, length(deslocamentos_ρ))
 
@@ -51,13 +52,8 @@ function gerar_grafico_figura5()
             # Calcula as forças usando a função unificada, mas só queremos Fx nesse plot
             Fx, ~, ~ = calcular_forcas(p, n_max, bscs_2D, α_coeffs, β_coeffs)
             
-            # Para deslocamento em x, F_radial = Fx
-            #forcas_radiais[i] = Fx
-            if caso.a_div_λ == 0.30
-                forcas_radiais[i] = -Fx
-            else
-                forcas_radiais[i] = Fx
-            end
+            # Para ajustar o referencial para o feixe parado com a partícula "em movimento", invertemos a força
+            forcas_radiais[i] = -Fx
 
             print("\rProgresso para $(caso.label): $(round(i/length(deslocamentos_ρ)*100, digits=1))%")
         end
@@ -77,8 +73,8 @@ function gerar_grafico_figura5()
     # Adiciona o 'x 10⁻⁷' no eixo Y, como no artigo
     ylabel!(plot_final, L"F_\rho[\mathrm{N}] \quad (\,\times\,10^{-7})")
     
-    savefig(plot_final, "figura5_reproduzida.png")
-    println("\nGráfico final para a Figura 5 salvo como 'figura5_reproduzida.png'")
+    savefig(plot_final, "figura5_baresch_reproduzida.png")
+    println("\nGráfico final para a Figura 5 salvo como 'figura5_baresch_reproduzida.png'")
 end
 
 gerar_grafico_figura5()

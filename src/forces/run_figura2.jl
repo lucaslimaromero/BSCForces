@@ -32,7 +32,7 @@ function gerar_grafico_figura2()
     deslocamentos_ρ = desloc_div_λ * p.λ
 
     # --- 2. Cálculos ---
-    println("Calculando coeficientes de espalhamento (uma vez)...")
+    println("Calculando coeficientes de espalhamento...")
     #α_coeffs, β_coeffs = calcular_coeficientes_espalhamento(n_max, p)
     α_coeffs, β_coeffs = calcular_coeffs_rayleigh(n_max, p)
     
